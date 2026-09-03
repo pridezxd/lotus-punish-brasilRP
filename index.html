@@ -35,6 +35,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:11px 9px;border-bottom:1
     <button data-page="aplicar">⚠ Aplicar punição</button>
     <button data-page="historico">◷ Histórico</button>
     <button data-page="texto">▤ Texto da punição</button>
+    <button data-page="clips">🎬 Clipes</button>
     <button data-page="regras">☷ Regras</button>
     <button data-page="config">⚙ Configurações</button>
   </div>
@@ -66,13 +67,21 @@ table{width:100%;border-collapse:collapse}th,td{padding:11px 9px;border-bottom:1
     <div class="card">
       <h2>Dados da ocorrência</h2>
       <div class="row">
-        <div class="field"><label>Nome / ID do jogador *</label><input id="player" placeholder="Ex.: Guilherme / ID 1234"></div>
-        <div class="field"><label>Staff responsável *</label><input id="staff" placeholder="Seu nome"></div>
+        <div class="field"><label>ID do jogador *</label><input id="player" placeholder="Ex.: 1234"></div>
+        <div class="field"><label>Discord (DC) *</label><input id="dc" placeholder="Ex.: 123456789012345678"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>ID do denunciante *</label><input id="reporterId" placeholder="Ex.: 5678"></div>
+        <div class="field"><label>Staff responsável</label><input id="staff" placeholder="Seu nome"></div>
       </div>
       <div class="field"><label>Infração *</label><select id="ruleSelect" onchange="showRule()"></select></div>
-      <div class="field"><label>Descrição da ocorrência *</label><textarea id="desc" placeholder="Descreva objetivamente o que aconteceu..."></textarea></div>
+      <div class="field"><label>Motivo *</label><textarea id="desc" placeholder="Descreva objetivamente o que aconteceu..."></textarea></div>
       <div class="row">
-        <div class="field"><label>Link da prova</label><input id="proof" placeholder="Discord, clipe, imagem, etc."></div>
+        <div class="field"><label>Provas</label><input id="proof" placeholder="Discord, clipe, imagem, etc."></div>
+        <div class="field"><label>Tempo</label><input id="duration" placeholder="Ex.: 3 dias, 500 serviços, permanente"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Status</label><select id="status"><option>ATIVA</option><option>CUMPRIDA</option><option>REVOGADA</option><option>EM ANÁLISE</option></select></div>
         <div class="field"><label>Data/hora</label><input id="date" type="datetime-local"></div>
       </div>
       <button class="btn primary" onclick="savePunishment()">Registrar punição</button>
@@ -82,6 +91,27 @@ table{width:100%;border-collapse:collapse}th,td{padding:11px 9px;border-bottom:1
       <div id="rulePreview" class="empty">Selecione uma infração.</div>
       <div style="height:12px"></div>
       <div class="result"><b>Observação</b><p class="muted">A tabela de punições exibida na documentação oficial é a referência administrativa. As penalidades que não estão explicitamente disponíveis no conteúdo textual foram deixadas configuráveis neste sistema, para evitar inventar uma sanção.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="clips" class="page hidden">
+  <div class="top"><div class="title"><h1>Clipes</h1><p>Abra rapidamente um link de clipe do Medal para visualizar ou baixar quando o próprio serviço disponibilizar o download.</p></div></div>
+  <div class="grid">
+    <div class="card">
+      <h2>Link do clipe</h2>
+      <div class="field"><label>URL do Medal</label><input id="medalClipUrl" placeholder="Cole aqui o link do clipe do Medal" oninput="previewMedalClip()" onpaste="setTimeout(previewMedalClip,0)"></div>
+      <div id="medalClipPreview" class="result" style="display:none;margin-top:12px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn primary" id="openMedalBtn" onclick="openMedalClip()" style="display:none">▶ Abrir clipe no Medal</button>
+        <button class="btn" onclick="clearMedalClip()">Limpar</button>
+      </div>
+      <div style="height:12px"></div>
+      <div class="result"><b>Download</b><p class="muted">Cole o link para gerar a prévia automaticamente. O download é feito pelos recursos oficiais disponibilizados pelo Medal, sem contornar Premium, watermark ou controles de acesso.</p></div>
+    </div>
+    <div class="card">
+      <h2>Último link</h2>
+      <div id="lastMedalClip" class="empty">Nenhum link salvo.</div>
     </div>
   </div>
 </section>
@@ -218,26 +248,19 @@ function go(page){document.querySelectorAll(".page").forEach(x=>x.classList.add(
 document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>go(b.dataset.page));
 function init(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());document.getElementById("date").value=d.toISOString().slice(0,16);const s=document.getElementById("ruleSelect");s.innerHTML='<option value="">Selecione...</option>'+baseRules.map((r,i)=>`<option value="${i}">${r.cat} — ${r.name}</option>`).join("");document.getElementById("filter").innerHTML='<option value="">Todas as infrações</option>'+baseRules.map(r=>`<option>${r.name}</option>`).join("");renderDash();}
 function showRule(){const i=document.getElementById("ruleSelect").value;if(i===""){document.getElementById("rulePreview").innerHTML='<div class="empty">Selecione uma infração.</div>';return}const r=baseRules[i];const p=TABLE_PENALTIES[r.name]||custom[r.name]||r.pen;document.getElementById("rulePreview").innerHTML=`<h3>${r.name}</h3><p class="muted">${r.desc}</p><div class="penalty">${p}</div><p class="muted">Categoria: ${r.cat}</p><span class="badge">PUNIÇÃO AUTOMÁTICA</span>`}
-function savePunishment(){const player=document.getElementById("player").value.trim(),staff=document.getElementById("staff").value.trim(),i=document.getElementById("ruleSelect").value,desc=document.getElementById("desc").value.trim();if(!player||!staff||i===""||!desc)return toast("Preencha jogador, staff, infração e descrição.");const r=baseRules[i];const item={id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(),player,staff,rule:r.name,cat:r.cat,penalty:TABLE_PENALTIES[r.name]||custom[r.name]||r.pen,desc,proof:document.getElementById("proof").value.trim(),date:document.getElementById("date").value};punishments.unshift(item);localStorage.setItem("lotusPunishments",JSON.stringify(punishments));document.getElementById("desc").value="";document.getElementById("proof").value="";showPunishmentText(item);toast("Punição registrada.");}
+function savePunishment(){const player=document.getElementById("player").value.trim(),dc=document.getElementById("dc").value.trim(),reporterId=document.getElementById("reporterId").value.trim(),staff=document.getElementById("staff").value.trim(),i=document.getElementById("ruleSelect").value,desc=document.getElementById("desc").value.trim();if(!player||!dc||!reporterId||i===""||!desc)return toast("Preencha ID, DC, ID do denunciante, infração e motivo.");const r=baseRules[i];const penalty=TABLE_PENALTIES[r.name]||custom[r.name]||r.pen;const item={id:crypto.randomUUID?crypto.randomUUID():Date.now().toString(),player,dc,reporterId,staff,rule:r.name,cat:r.cat,penalty,duration:document.getElementById("duration").value.trim()||penalty,status:document.getElementById("status").value,desc,proof:document.getElementById("proof").value.trim(),date:document.getElementById("date").value};punishments.unshift(item);localStorage.setItem("lotusPunishments",JSON.stringify(punishments));document.getElementById("desc").value="";document.getElementById("proof").value="";document.getElementById("duration").value="";showPunishmentText(item);toast("Punição registrada.");}
 function renderDash(){document.getElementById("sTotal").textContent=punishments.length;document.getElementById("sWarn").textContent=punishments.filter(x=>/advert/i.test(x.penalty)).length;document.getElementById("sServices").textContent=punishments.reduce((a,x)=>{const m=x.penalty.match(/(\d[\d.]*)\s*servi/i);return a+(m?parseInt(m[1].replaceAll(".","")):0)},0).toLocaleString("pt-BR");document.getElementById("sBans").textContent=punishments.filter(x=>/banimento|banimento permanente|banimento imediato/i.test(x.penalty)).length;const el=document.getElementById("recent");el.innerHTML=punishments.slice(0,8).map(x=>`<div class="rule"><div><strong>${esc(x.player)}</strong><small>${esc(x.rule)} · ${fmt(x.date)}</small></div><span class="tag">${esc(x.penalty)}</span></div>`).join("")||'<div class="empty">Nenhuma punição registrada.</div>'}
 let lastPunishment = null;
 
 function buildPunishmentText(x){
-  const proof = x.proof ? `\n🔗 **Prova:** ${x.proof}` : "";
-  return `**🚨 REGISTRO DE PUNIÇÃO — BRASIL ROLEPLAY**
-
-👤 **Jogador:** ${x.player}
-📋 **Infração:** ${x.rule}
-⚖️ **Punição:** ${x.penalty}
-
-📝 **Motivo/Descrição:**
-${x.desc}
-
-👮 **Staff responsável:** ${x.staff}
-🕐 **Data:** ${fmt(x.date)}${proof}
-
-**Sistema Lotus Punish**
-Punição aplicada conforme a tabela de punições vigente.`;
+  return `- **ID:** ${x.player||"—"}
+- **DC:** ${x.dc||"—"}
+- **PUNIÇÃO:** ${x.penalty||"—"}
+- **ID DO DENUCIANTE:** ${x.reporterId||"—"}
+- **MOTIVO:** ${x.desc||"—"}
+- **TEMPO:** ${x.duration||x.penalty||"—"}
+- **STATUS:** ${x.status||"ATIVA"}
+- **PROVAS:** ${x.proof||"Sem provas informadas"}`;
 }
 
 function showPunishmentText(x){
@@ -267,10 +290,59 @@ function selectPunishmentText(){
 }
 
 function renderHistory(){const q=(document.getElementById("search").value||"").toLowerCase(),f=document.getElementById("filter").value;const arr=punishments.filter(x=>(!f||x.rule===f)&&(!q||[x.player,x.rule,x.staff,x.desc].join(" ").toLowerCase().includes(q)));document.getElementById("historyTable").innerHTML=arr.length?`<table><thead><tr><th>Jogador</th><th>Infração</th><th>Penalidade</th><th>Staff</th><th>Data</th><th></th></tr></thead><tbody>${arr.map(x=>`<tr><td><b>${esc(x.player)}</b></td><td>${esc(x.rule)}</td><td>${esc(x.penalty)}</td><td>${esc(x.staff)}</td><td>${fmt(x.date)}</td><td><button class="btn" onclick='details(${JSON.stringify(x).replaceAll("'","&#39;")})'>Ver</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">Nenhum registro encontrado.</div>'}
-function details(x){document.getElementById("modalTitle").textContent=x.player+" — "+x.rule;document.getElementById("modalBody").innerHTML=`<p><b>Penalidade:</b> ${esc(x.penalty)}</p><p><button class="btn primary" onclick='closeModal();showPunishmentText(x)'>Abrir texto pronto</button></p><p><b>Staff:</b> ${esc(x.staff)}</p><p><b>Data:</b> ${fmt(x.date)}</p><p><b>Descrição:</b><br>${esc(x.desc).replaceAll("\n","<br>")}</p>${x.proof?`<p><b>Prova:</b> <a href="${safeUrl(x.proof)}" target="_blank" rel="noopener">Abrir evidência</a> <button class="btn" style="margin-left:8px;padding:6px 10px" onclick='downloadClip("${safeUrl(x.proof)}")'>⬇ Baixar clipe</button></p>`:""}`;document.getElementById("modal").classList.remove("hidden")}
+function details(x){document.getElementById("modalTitle").textContent=x.player+" — "+x.rule;document.getElementById("modalBody").innerHTML=`<p><b>ID:</b> ${esc(x.player||"—")}</p><p><b>DC:</b> ${esc(x.dc||"—")}</p><p><b>Penalidade:</b> ${esc(x.penalty)}</p><p><b>ID do denunciante:</b> ${esc(x.reporterId||"—")}</p><p><b>Tempo:</b> ${esc(x.duration||x.penalty||"—")}</p><p><b>Status:</b> ${esc(x.status||"ATIVA")}</p><p><button class="btn primary" onclick='closeModal();showPunishmentText(x)'>Abrir texto pronto</button></p><p><b>Staff:</b> ${esc(x.staff||"—")}</p><p><b>Data:</b> ${fmt(x.date)}</p><p><b>Motivo:</b><br>${esc(x.desc).replaceAll("\n","<br>")}</p>${x.proof?`<p><b>Prova:</b> <a href="${safeUrl(x.proof)}" target="_blank" rel="noopener">Abrir evidência</a> <button class="btn" style="margin-left:8px;padding:6px 10px" onclick='openExternalClip("${safeUrl(x.proof)}")'>↗ Abrir clipe</button></p>`:"<p><b>Provas:</b> —</p>`}`;document.getElementById("modal").classList.remove("hidden")}
 function closeModal(){document.getElementById("modal").classList.add("hidden")}
 function renderRules(){const q=(document.getElementById("ruleSearch").value||"").toLowerCase();const arr=baseRules.filter(r=>(r.name+" "+r.cat+" "+r.desc).toLowerCase().includes(q));document.getElementById("rulesList").innerHTML=arr.map((r,i)=>`<div class="rule" onclick="ruleModal(${baseRules.indexOf(r)})"><div><strong>${esc(r.name)}</strong><small>${esc(r.desc)}</small></div><span class="tag">${esc(TABLE_PENALTIES[r.name]||custom[r.name]||r.pen)}</span></div>`).join("")}
 function ruleModal(i){const r=baseRules[i];document.getElementById("modalTitle").textContent=r.name;document.getElementById("modalBody").innerHTML=`<p class="muted">${esc(r.desc)}</p><p><b>Penalidade configurada:</b> <span class="penalty">${esc(TABLE_PENALTIES[r.name]||custom[r.name]||r.pen)}</span></p><p><b>Categoria:</b> ${esc(r.cat)}</p>`;document.getElementById("modal").classList.remove("hidden")}
+
+function getValidMedalUrl(){
+  const raw=document.getElementById("medalClipUrl").value.trim();
+  const url=safeUrl(raw);
+  if(url==="#") return null;
+  try{
+    const u=new URL(url), host=u.hostname.toLowerCase();
+    if(!host.endsWith("medal.tv") && !host.endsWith("www.medal.tv")) return null;
+    return u.href;
+  }catch{return null;}
+}
+function previewMedalClip(){
+  const box=document.getElementById("medalClipPreview");
+  const btn=document.getElementById("openMedalBtn");
+  const raw=document.getElementById("medalClipUrl").value.trim();
+  if(!raw){box.style.display="none";box.innerHTML="";btn.style.display="none";return;}
+  const url=getValidMedalUrl();
+  if(!url){
+    box.style.display="block";
+    box.innerHTML='<b>⚠ Link inválido</b><p class="muted">Cole um link válido do Medal (medal.tv).</p>';
+    btn.style.display="none";
+    return;
+  }
+  box.style.display="block";
+  box.innerHTML=`<div style="display:flex;align-items:center;gap:12px"><div style="font-size:32px">🎬</div><div style="min-width:0"><b>Clipe do Medal detectado</b><p class="muted" style="margin:5px 0;word-break:break-all">${esc(url)}</p><span class="tag">Pronto para abrir</span></div></div>`;
+  btn.style.display="inline-flex";
+  localStorage.setItem("lastMedalClip",url);
+  renderLastMedalClip();
+}
+function openMedalClip(){
+  const url=getValidMedalUrl();
+  if(!url) return toast("Cole um link válido do Medal (medal.tv).");
+  localStorage.setItem("lastMedalClip",url);
+  renderLastMedalClip();
+  window.open(url,"_blank","noopener");
+  toast("Clipe aberto em uma nova aba.");
+}
+function clearMedalClip(){
+  document.getElementById("medalClipUrl").value="";
+  previewMedalClip();
+}
+
+function renderLastMedalClip(){
+  const url=localStorage.getItem("lastMedalClip");
+  const el=document.getElementById("lastMedalClip");
+  if(!url){el.innerHTML="Nenhum link salvo.";return;}
+  el.innerHTML=`<a href="${safeUrl(url)}" target="_blank" rel="noopener" style="color:#c4b5fd;word-break:break-all">${esc(url)}</a>`;
+}
+
 function renderConfig(){document.getElementById("configList").innerHTML=baseRules.map((r,i)=>`<div class="row" style="margin-bottom:9px;align-items:center"><div><b>${esc(r.name)}</b><div class="muted" style="font-size:11px">${esc(r.cat)}</div></div><input data-pen="${i}" value="${esc(TABLE_PENALTIES[r.name]||custom[r.name]||r.pen)}"></div>`).join("")}
 function saveConfig(){document.querySelectorAll("[data-pen]").forEach(el=>custom[baseRules[+el.dataset.pen].name]=el.value.trim()||"Configurável");localStorage.setItem("lotusPenalties",JSON.stringify(custom));toast("Penalidades atualizadas.");renderDash();}
 function exportJSON(){const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),rules:baseRules,penalties:custom,punishments},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="lotus-punish-backup.json";a.click();URL.revokeObjectURL(a.href)}
@@ -280,38 +352,13 @@ function fmt(v){return v?new Date(v).toLocaleString("pt-BR"):"—"}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function safeUrl(s){try{const u=new URL(s);return /^https?:$/.test(u.protocol)?u.href:"#"}catch{return "#"}}
 
-async function downloadClip(url){
-  if(!url || url==="#") return toast("Link da prova inválido.");
-  try{
-    toast("Preparando download do clipe...");
-    const res = await fetch(url, {mode:"cors"});
-    if(!res.ok) throw new Error("HTTP "+res.status);
-    const blob = await res.blob();
-    const type = blob.type || "video/mp4";
-    const ext = type.includes("webm") ? "webm" : type.includes("quicktime") ? "mov" : "mp4";
-    const blobUrl = URL.createObjectURL(new Blob([blob], {type}));
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = "clipe-lotus-punish-" + new Date().toISOString().replace(/[:.]/g,"-") + "." + ext;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(blobUrl), 1500);
-    toast("Download iniciado.");
-  }catch(e){
-    // Sites como Discord podem bloquear fetch por CORS. Nesse caso,
-    // abrimos o link direto para o usuário salvar pelo próprio navegador.
-    const a = document.createElement("a");
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.download = "";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    toast("O servidor bloqueou o download automático; o clipe foi aberto para salvar.");
-  }
+function openExternalClip(url){
+  const u=safeUrl(url);
+  if(u==="#") return toast("Link da prova inválido.");
+  window.open(u,"_blank","noopener");
+  toast("Clipe aberto. Use o download disponibilizado pelo serviço.");
 }
+renderLastMedalClip();
 init();
 </script>
 </body>
