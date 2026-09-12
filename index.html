@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brasil Roleplay • Punições</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#0f1117;color:#f4f4f5}
+.container{max-width:1100px;margin:auto;padding:24px}
+header{background:#171a22;border-bottom:1px solid #2a2f3a;position:sticky;top:0;z-index:10}
+header .container{display:flex;justify-content:space-between;align-items:center;gap:20px}
+.logo{font-size:22px;font-weight:800}.logo span{color:#7c5cff}
+nav button{background:transparent;border:0;color:#b8bdc9;padding:10px 12px;cursor:pointer;border-radius:8px}nav button.active,nav button:hover{background:#252a35;color:#fff}
+h1{margin:20px 0 6px}.subtitle{color:#aeb4c0;margin-top:0}
+.card{background:#171a22;border:1px solid #2a2f3a;border-radius:14px;padding:18px;margin:18px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+label{display:block;color:#b8bdc9;font-size:13px;margin-bottom:6px}
+input,select,textarea{width:100%;background:#0f1117;border:1px solid #343a48;color:#fff;border-radius:9px;padding:11px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#7c5cff}
+button.primary{background:#7c5cff;color:white;border:0;padding:11px 16px;border-radius:9px;font-weight:700;cursor:pointer}
+button.secondary{background:#252a35;color:#fff;border:1px solid #343a48;padding:10px 14px;border-radius:9px;cursor:pointer}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.result{border:1px solid #343a48;background:#10131a;border-radius:10px;padding:12px;margin-top:8px;cursor:pointer}
+.result:hover{border-color:#7c5cff}.muted{color:#9299a7}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#252a35;font-size:12px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #2a2f3a;font-size:14px}th{color:#aeb4c0}
+.hidden{display:none}.empty{text-align:center;color:#9299a7;padding:28px}
+.small{font-size:12px;color:#9299a7}
+@media(max-width:650px){header .container{align-items:flex-start;flex-direction:column}nav{width:100%;display:flex}.container{padding:16px}}
+</style>
+</head>
+<body>
+<header>
+<div class="container">
+<div class="logo">Brasil Roleplay <span>• Punições</span></div>
+<nav>
+<button class="tab active" data-tab="registrar">Registrar</button>
+<button class="tab" data-tab="historico">Histórico</button>
+<button class="tab" data-tab="regras">Regras</button>
+</nav>
+</div>
+</header>
+
+<main class="container">
+<section id="registrar">
+<h1>Registrar punição</h1>
+<p class="subtitle">Sistema simples para consultar infrações e registrar punições.</p>
+
+<div class="card">
+<div class="grid">
+<div><label>ID do jogador</label><input id="playerId" placeholder="Ex.: 1234"></div>
+<div><label>Discord (DC)</label><input id="discord" placeholder="Ex.: usuario"></div>
+<div><label>ID do denunciante</label><input id="reporterId" placeholder="Ex.: 5678"></div>
+<div><label>Status</label><select id="status"><option>Aplicado</option><option>Aguardando</option></select></div>
+</div>
+
+<div style="margin-top:14px">
+<label>Pesquisar punição</label>
+<input id="infractionSearch" autocomplete="off" placeholder="Digite o nome da infração (ex.: RDM, RDM Ilha, Hacker)">
+<div id="suggestions"></div>
+</div>
+
+<div id="selectedBox" class="card hidden" style="margin:14px 0 0">
+<strong id="selectedName"></strong>
+<div class="muted" id="selectedRule"></div>
+<div class="grid" style="margin-top:12px">
+<div><label>Punição</label><input id="punishment" readonly></div>
+<div><label>Tempo</label><input id="duration" readonly></div>
+</div>
+</div>
+
+<div style="margin-top:14px">
+<label>Motivo / observação</label>
+<textarea id="reason" rows="3" placeholder="Descreva o motivo da punição"></textarea>
+</div>
+<div style="margin-top:14px">
+<label>Link do clipe (opcional)</label><input id="clipUrl" placeholder="Cole aqui o link do clipe">
+</div>
+<div class="actions">
+<button class="primary" onclick="savePunishment()">Registrar punição</button>
+<button class="secondary" onclick="clearForm()">Limpar</button>
+</div>
+</div>
+</section>
+
+<section id="historico" class="hidden">
+<h1>Histórico</h1>
+<p class="subtitle">Punições registradas neste navegador.</p>
+<div class="card">
+<input id="historySearch" placeholder="Pesquisar por ID, Discord, infração ou motivo" oninput="renderHistory()">
+<div id="history"></div>
+</div>
+</section>
+
+<section id="regras" class="hidden">
+<h1>Regras e punições</h1>
+<p class="subtitle">Consulte a infração e a punição correspondente.</p>
+<div class="card">
+<input id="rulesSearch" placeholder="Digite para filtrar as regras" oninput="renderRules()">
+<div id="rules"></div>
+</div>
+</section>
+</main>
+
+<script>
+const RULES = [
+ {name:"Hacker", punishment:"Banimento", duration:"Permanente", rule:"Uso de hacks, cheats, injetores ou ferramentas para obter vantagem indevida."},
+ {name:"Uso de programas externos para vantagem", punishment:"Banimento", duration:"Permanente", rule:"Utilização de software externo que altere ou favoreça a jogabilidade."},
+ {name:"Exploit / Bug Abuse", punishment:"Banimento", duration:"A definir pela administração", rule:"Abuso intencional de falhas, bugs ou exploits para obter vantagem."},
+ {name:"Anti-RP", punishment:"Advertência / Punição", duration:"A definir", rule:"Atitudes incompatíveis com a proposta de roleplay."},
+ {name:"RDM", punishment:"2.000 + Camisa de Força", duration:"Imediato", rule:"Agressão ou eliminação sem contexto ou justificativa de roleplay."},
+ {name:"RDM Ilha", punishment:"Banimento + Wipe na conta", duration:"7 dias", rule:"RDM realizado na Ilha, conforme regra específica."},
+ {name:"VDM", punishment:"Punição", duration:"A definir", rule:"Uso intencional de veículo para atropelar ou causar dano sem contexto de RP."},
+ {name:"Meta Gaming", punishment:"Punição", duration:"A definir", rule:"Uso de informações obtidas fora do personagem para benefício dentro do RP."},
+ {name:"Power Gaming", punishment:"Punição", duration:"A definir", rule:"Forçar situações ou ações irreais sem dar possibilidade de reação ao outro jogador."},
+ {name:"Combat Logging", punishment:"Punição", duration:"A definir", rule:"Sair do servidor para evitar consequência de uma situação de RP."},
+ {name:"Fear RP", punishment:"Punição", duration:"A definir", rule:"Ignorar situações de risco em que o personagem deveria demonstrar medo ou preservação."},
+ {name:"Desrespeito à staff", punishment:"Punição", duration:"A definir", rule:"Desrespeito, ofensa ou comportamento inadequado direcionado à equipe."},
+ {name:"Abuso de bug", punishment:"Punição", duration:"A definir", rule:"Exploração consciente de erro do servidor para benefício próprio ou de terceiros."},
+ {name:"Propaganda / Divulgação", punishment:"Punição", duration:"A definir", rule:"Divulgação não autorizada de outros servidores, comunidades ou serviços."}
+];
+
+let selectedRule = null;
+
+document.querySelectorAll(".tab").forEach(btn=>{
+ btn.onclick=()=>{
+   document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+   btn.classList.add("active");
+   document.querySelectorAll("main section").forEach(s=>s.classList.add("hidden"));
+   document.getElementById(btn.dataset.tab).classList.remove("hidden");
+   if(btn.dataset.tab==="historico") renderHistory();
+   if(btn.dataset.tab==="regras") renderRules();
+ };
+});
+
+const search = document.getElementById("infractionSearch");
+search.addEventListener("input",()=>{
+ const q=search.value.toLowerCase().trim();
+ const box=document.getElementById("suggestions");
+ selectedRule=null;
+ document.getElementById("selectedBox").classList.add("hidden");
+ if(!q){box.innerHTML="";return}
+ const matches=RULES.filter(r=>r.name.toLowerCase().includes(q) || r.punishment.toLowerCase().includes(q)).slice(0,10);
+ box.innerHTML=matches.map(r=>`<div class="result" onclick="selectRule(${RULES.indexOf(r)})"><strong>${r.name}</strong><br><span class="muted">Punição: ${r.punishment} • Tempo: ${r.duration}</span></div>`).join("") || '<div class="small" style="margin-top:8px">Nenhuma punição encontrada. Tente outro termo.</div>';
+ // Seleciona automaticamente quando o nome digitado corresponde exatamente à infração.
+ const exact=RULES.find(r=>r.name.toLowerCase()===q);
+ if(exact) selectRule(RULES.indexOf(exact));
+});
+
+search.addEventListener("keydown",e=>{
+ if(e.key==="Enter"){
+  const q=search.value.toLowerCase().trim();
+  const idx=RULES.findIndex(r=>r.name.toLowerCase()===q);
+  if(idx>=0){e.preventDefault();selectRule(idx);}
+ }
+});
+
+function selectRule(i){
+ selectedRule=RULES[i];
+ search.value=selectedRule.name;
+ document.getElementById("suggestions").innerHTML="";
+ document.getElementById("selectedBox").classList.remove("hidden");
+ document.getElementById("selectedName").textContent=selectedRule.name;
+ document.getElementById("selectedRule").textContent=selectedRule.rule;
+ document.getElementById("punishment").value=selectedRule.punishment;
+ document.getElementById("duration").value=selectedRule.duration;
+}
+
+function savePunishment(){
+ if(!selectedRule){alert("Selecione uma infração.");return}
+ const item={
+  id:document.getElementById("playerId").value.trim(),
+  dc:document.getElementById("discord").value.trim(),
+  reporter:document.getElementById("reporterId").value.trim(),
+  status:document.getElementById("status").value,
+  infraction:selectedRule.name,
+  punishment:selectedRule.punishment,
+  duration:selectedRule.duration,
+  reason:document.getElementById("reason").value.trim(),
+  date:new Date().toLocaleString("pt-BR")
+ };
+ const history=JSON.parse(localStorage.getItem("brasilrp_punicoes")||"[]");
+ history.unshift(item);
+ localStorage.setItem("brasilrp_punicoes",JSON.stringify(history));
+
+ try {
+   const discordResponse = await fetch("/api/discord", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ ...item, clipUrl: document.getElementById("clipUrl").value.trim() })
+   });
+   if (!discordResponse.ok) {
+     const data = await discordResponse.json().catch(()=>({}));
+     alert("Punição registrada, mas não foi possível enviar ao Discord. " + (data.error || "Verifique o webhook."));
+   } else {
+     alert("Punição registrada e mensagem enviada ao Discord!");
+   }
+ } catch (e) {
+   alert("Punição registrada, mas o Discord não respondeu. Verifique a configuração do webhook.");
+ }
+ clearForm();
+}
+
+function clearForm(){
+ ["playerId","discord","reporterId","reason","clipUrl"].forEach(id=>document.getElementById(id).value="");
+ document.getElementById("status").value="Aplicado";
+ search.value="";
+ document.getElementById("suggestions").innerHTML="";
+ document.getElementById("selectedBox").classList.add("hidden");
+ selectedRule=null;
+}
+
+function renderHistory(){
+ const q=(document.getElementById("historySearch").value||"").toLowerCase();
+ const data=JSON.parse(localStorage.getItem("brasilrp_punicoes")||"[]").filter(x=>
+  Object.values(x).some(v=>String(v).toLowerCase().includes(q))
+ );
+ const el=document.getElementById("history");
+ if(!data.length){el.innerHTML='<div class="empty">Nenhuma punição registrada.</div>';return}
+ el.innerHTML=`<div style="overflow:auto"><table><thead><tr><th>ID</th><th>Infração</th><th>Punição</th><th>Tempo</th><th>Status</th><th>Data</th></tr></thead><tbody>`+
+ data.map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.infraction)}</td><td>${esc(x.punishment)}</td><td>${esc(x.duration)}</td><td><span class="badge">${esc(x.status)}</span></td><td>${esc(x.date)}</td></tr>`).join("")+
+ `</tbody></table></div>`;
+}
+
+function renderRules(){
+ const q=(document.getElementById("rulesSearch").value||"").toLowerCase();
+ const data=RULES.filter(r=>(r.name+" "+r.rule+" "+r.punishment).toLowerCase().includes(q));
+ document.getElementById("rules").innerHTML=data.map(r=>`<div class="result" style="cursor:default"><strong>${esc(r.name)}</strong><br><span class="muted">${esc(r.rule)}</span><br><span class="small">Punição: ${esc(r.punishment)} • Tempo: ${esc(r.duration)}</span></div>`).join("");
+}
+
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+renderRules();
+</script>
+</body>
+</html>
