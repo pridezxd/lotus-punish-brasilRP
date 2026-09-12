@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/medal.js": {
+      "runtime": "nodejs20.x"
+    },
+    "api/medal-download.js": {
+      "runtime": "nodejs20.x",
+      "maxDuration": 60
+    }
+  }
+}
